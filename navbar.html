@@ -1,13 +1,13 @@
 <!--
 ==========================================
 共通ナビゲーションバー (navbar.html)
-2026/08/12 19:20
+2026/08/12 19:25
 ==========================================
 -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
   <div class="container-fluid">
     
-    <!-- ユーザー情報表示（アプリ名は非表示） -->
+    <!-- ユーザー情報表示 -->
     <div class="navbar-text text-white me-auto">
       <span id="nav-member-name" class="fw-bold">読み込み中...</span> 
       <span id="nav-role" class="badge bg-secondary ms-2">-</span>
@@ -20,11 +20,11 @@
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav ms-auto align-items-center">
         <li class="nav-item">
-          <a class="nav-link" href="schedule.html">スケジュール一覧</a>
+          <a class="nav-link active" href="schedule.html">スケジュール一覧</a>
         </li>
         
-        <!-- 統合管理メニュー（世帯管理者 / 全体管理者向けドロップダウン） -->
-        <li class="nav-item dropdown" id="nav-admin-menu" style="display: none;">
+        <!-- 管理メニュー（初期状態はd-noneクラスで非表示） -->
+        <li class="nav-item dropdown d-none" id="nav-admin-menu">
           <a class="nav-link dropdown-toggle text-warning fw-bold" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             管理メニュー
           </a>
@@ -32,11 +32,8 @@
             <li id="menu-item-members">
               <a class="dropdown-item" href="HouseholdMembers.html">世帯メンバー管理</a>
             </li>
-            <li id="menu-item-user-maintenance" style="display: none;">
+            <li id="menu-item-user-maintenance" class="d-none" id="li-user-maint">
               <a class="dropdown-item" href="UserMaintenance.html">権限メンテナンス</a>
-            </li>
-            <li id="menu-item-clear-school" style="display: none;">
-              <a class="dropdown-item text-danger" href="#" onclick="handleBatchClearSchool()">学校情報一括クリア</a>
             </li>
             <li><hr class="dropdown-divider"></li>
             <li id="menu-item-add-permission">
@@ -50,10 +47,6 @@
 </nav>
 
 <script>
-  /**
-   * ナビゲーションバーのユーザー情報・権限別メニューの制御関数
-   * 各ページ（schedule.html等）から呼び出します
-   */
   function updateNavigationUI(currentRole, memberName) {
     const nameEl = document.getElementById("nav-member-name");
     const roleEl = document.getElementById("nav-role");
@@ -62,21 +55,23 @@
     if (roleEl) roleEl.textContent = currentRole || "閲覧者";
 
     const adminMenu = document.getElementById("nav-admin-menu");
-    const menuItemUserMaint = document.getElementById("menu-item-user-maintenance");
-    const menuItemClearSchool = document.getElementById("menu-item-clear-school");
+    const userMaintItem = document.getElementById("li-user-maint");
 
     if (!adminMenu) return;
 
     const isGlobalAdmin = ["システム管理者", "運用管理者"].includes(currentRole);
     const isHouseholdAdmin = (currentRole === "世帯管理者");
 
-    // 世帯管理者・全体管理者の場合に「管理メニュー」ドロップダウンを表示
+    // 世帯管理者・全体管理者の場合、「管理メニュー」を表示
     if (isGlobalAdmin || isHouseholdAdmin) {
-      adminMenu.style.setProperty("display", "block", "important");
-      if (menuItemUserMaint) menuItemUserMaint.style.display = isGlobalAdmin ? "block" : "none";
-      if (menuItemClearSchool) menuItemClearSchool.style.display = isGlobalAdmin ? "block" : "none";
+      adminMenu.classList.remove("d-none");
+      
+      if (userMaintItem) {
+        if (isGlobalAdmin) userMaintItem.classList.remove("d-none");
+        else userMaintItem.classList.add("d-none");
+      }
     } else {
-      adminMenu.style.display = "none";
+      adminMenu.classList.add("d-none");
     }
   }
 </script>
