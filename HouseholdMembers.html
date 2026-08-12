@@ -1,3 +1,9 @@
+<!--
+==========================================
+世帯メンバー管理画面 (HouseholdMembers.html)
+2026/08/12 19:28
+==========================================
+-->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -5,33 +11,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>世帯メンバー管理</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body class="bg-light">
 
-  <!-- 共通ナビゲーション（先ほど作成したメニュー） -->
-  <div id="navbar-placeholder"></div>
+  <div id="navbar-container"></div>
 
   <div class="container my-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h4 class="mb-0">世帯メンバー管理</h4>
-      <button class="btn btn-primary" onclick="openMemberModal()">+ メンバー追加</button>
+      <div class="btn-group">
+        <button id="btn-clear-school" class="btn btn-outline-danger btn-sm" style="display: none;" onclick="handleBatchClearSchool()">
+          学校情報一括クリア
+        </button>
+        <button class="btn btn-primary btn-sm ms-2" onclick="openMemberModal()">+ メンバー追加</button>
+      </div>
     </div>
 
-    <!-- 世帯絞り込み（グローバル管理者・複数世帯管理者向け） -->
     <div class="card mb-3 shadow-sm">
       <div class="card-body py-2">
         <div class="row align-items-center">
           <label for="selectHousehold" class="col-auto col-form-label fw-bold">対象世帯:</label>
           <div class="col">
             <select id="selectHousehold" class="form-select" onchange="loadMemberList()">
-              <option value="">読み込み中...</option>
+              <option value="">世帯を読み込み中...</option>
             </select>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- メンバー一覧テーブル -->
     <div class="card shadow-sm">
       <div class="card-body p-0">
         <div class="table-responsive">
@@ -54,59 +63,48 @@
     </div>
   </div>
 
-  <!-- メンバー登録・編集モーダル -->
-  <div class="modal fade" id="memberModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="memberModalLabel">メンバー情報の編集</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
-        </div>
-        <div class="modal-body">
-          <form id="memberForm">
-            <input type="hidden" id="modalMemberId">
-            <div class="mb-3">
-              <label class="form-label">氏名 <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="modalMemberName" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">よみ（ふりがな）</label>
-              <input type="text" class="form-control" id="modalMemberNameKana">
-            </div>
-            <div class="row">
-              <div class="col-md-4 mb-3">
-                <label class="form-label">学校ID</label>
-                <input type="text" class="form-control" id="modalSchoolId">
-              </div>
-              <div class="col-md-4 mb-3">
-                <label class="form-label">学年ID</label>
-                <input type="text" class="form-control" id="modalGradeId">
-              </div>
-              <div class="col-md-4 mb-3">
-                <label class="form-label">クラス</label>
-                <input type="text" class="form-control" id="modalSchoolYearClass">
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label class="form-label">運用開始日</label>
-                <input type="date" class="form-control" id="modalStartDate">
-              </div>
-              <div class="col-md-6 mb-3">
-                <label class="form-label">運用終了日</label>
-                <input type="date" class="form-control" id="modalEndDate">
-              </div>
-            </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-          <button type="button" class="btn btn-primary" onclick="submitSaveMember()">保存</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const GAS_WEB_APP_URL = "YOUR_GAS_WEB_APP_URL";
+    const LIFF_ID = "YOUR_LIFF_ID";
+    let currentUserLineUserId = "";
+
+    document.addEventListener("DOMContentLoaded", initPage);
+
+    async function initPage() {
+      const navRes = await fetch("navbar.html");
+      document.getElementById("navbar-container").innerHTML = await navRes.text();
+
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login(); return; }
+      const profile = await liff.getProfile();
+      currentUserLineUserId = profile.userId;
+
+      const res = await fetch(`${GAS_WEB_APP_URL}?action=getValidHouseholds&lineUserId=${encodeURIComponent(currentUserLineUserId)}`);
+      const data = await res.json();
+
+      if (data.status === "success") {
+        updateNavigationUI(data.currentRole, profile.displayName);
+
+        if (["システム管理者", "運用管理者"].includes(data.currentRole)) {
+          document.getElementById("btn-clear-school").style.display = "inline-block";
+        }
+
+        const select = document.getElementById("selectHousehold");
+        select.innerHTML = "";
+        data.data.forEach(hh => {
+          const opt = document.createElement("option");
+          opt.value = hh.householdId;
+          opt.textContent = hh.householdName;
+          select.appendChild(opt);
+        });
+
+        loadMemberList();
+      }
+    }
+
+    function loadMemberList() {}
+    function handleBatchClearSchool() {}
+  </script>
 </body>
 </html>
