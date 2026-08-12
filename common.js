@@ -1,5 +1,6 @@
 // ==========================================
 // 共通初期化・LINE LIFF認証管理 (common.js)
+// 更新日時: 2026/08/12 19:40
 // ==========================================
 
 async function initCommonApp() {
@@ -22,8 +23,7 @@ async function initCommonApp() {
     }
 
     if (!lineUserId) {
-      updateNavbarUserInfo("ゲスト", "未登録");
-      updateNavbarMenuByRole("未登録");
+      updateNavigationUI("未登録", "ゲスト");
       return null;
     }
 
@@ -63,15 +63,13 @@ async function initCommonApp() {
 
     let memberName = lineDisplayName;
     let roleDisplay = "未登録";
-    let rawRole = "";
 
     if (result.status === "success" && result.registered) {
       memberName = result.memberName || lineDisplayName;
       const approvalStatus = result.approvalStatus || "未登録";
 
       if (approvalStatus === "承認済") {
-        roleDisplay = result.role || "一般";
-        rawRole = result.role || "";
+        roleDisplay = result.role || "閲覧者";
       } else if (approvalStatus === "申請中" || approvalStatus === "承認待ち") {
         roleDisplay = "承認待ち";
       } else {
@@ -88,16 +86,15 @@ async function initCommonApp() {
       localStorage.removeItem('approvalStatus');
     }
 
-    updateNavbarUserInfo(memberName, roleDisplay);
-    updateNavbarMenuByRole(rawRole);
+    // ナビゲーション表示の統合更新
+    updateNavigationUI(roleDisplay, memberName);
 
     return lineUserId;
 
   } catch (err) {
     console.error("共通初期化エラー:", err);
     showLoading(false);
-    updateNavbarUserInfo("エラー", "未登録");
-    updateNavbarMenuByRole("未登録");
+    updateNavigationUI("未登録", "エラー");
     return null;
   }
 }
@@ -111,48 +108,11 @@ function clearUserStatusCache(lineUserId) {
   }
 }
 
-function updateNavbarUserInfo(name, role) {
-  const nameEl = document.getElementById('nav-member-name');
-  const roleEl = document.getElementById('nav-role');
-
-  if (nameEl) nameEl.textContent = name || 'ゲスト';
-  
-  if (roleEl) {
-    roleEl.textContent = role || '未登録';
-    roleEl.className = "badge ms-2";
-
-    switch (role) {
-      case "システム管理者": roleEl.classList.add("bg-danger"); break;
-      case "運用管理者": roleEl.classList.add("bg-warning", "text-dark"); break;
-      case "世帯管理者": roleEl.classList.add("bg-primary"); break;
-      case "予定回答者": roleEl.classList.add("bg-success"); break;
-      case "閲覧者":
-      case "未登録":
-      default: roleEl.classList.add("bg-secondary"); break;
-    }
-  }
-}
-
-function updateNavbarMenuByRole(role) {
-  const maintenanceNavEl = document.getElementById('nav-item-user-maintenance');
-  const addPermissionNavEl = document.getElementById('nav-item-add-permission');
-
-  if (maintenanceNavEl) {
-    const adminRoles = ["システム管理者", "運用管理者", "世帯管理者"];
-    maintenanceNavEl.style.display = adminRoles.includes(role) ? "" : "none";
-  }
-
-  if (addPermissionNavEl) {
-    addPermissionNavEl.style.display = (role && role !== "未登録") ? "" : "none";
-  }
-}
-
 async function loadNavbar() {
   const container = document.getElementById('navbar-container');
   if (!container) return;
 
   try {
-    // --- ナビゲーションHTMLのキャッシュ確認 ---
     const cacheKey = 'cached_navbar_html';
     let navbarHtml = sessionStorage.getItem(cacheKey);
 
@@ -165,16 +125,10 @@ async function loadNavbar() {
 
     container.innerHTML = navbarHtml;
 
-    const appNameEl = document.getElementById('nav-app-name');
-    if (appNameEl && typeof CONFIG !== 'undefined' && CONFIG.APP_NAME) {
-      appNameEl.textContent = CONFIG.APP_NAME;
-    }
-
     const togglerBtn = document.getElementById('nav-toggler-btn');
     const navbarCollapse = document.getElementById('navbarNav');
 
     if (togglerBtn && navbarCollapse) {
-      // イベントリスナーの多重登録を防ぐためクローンに置換
       const newTogglerBtn = togglerBtn.cloneNode(true);
       togglerBtn.parentNode.replaceChild(newTogglerBtn, togglerBtn);
 
