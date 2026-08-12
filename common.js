@@ -1,9 +1,7 @@
-<!--
 // ==========================================
 // 共通初期化・LINE LIFF認証管理 (common.js)
-// 更新日時: 2026/08/12 19:49
+// 更新日時：2026/0813 08:34
 // ==========================================
--->
 
 async function initCommonApp() {
   try {
@@ -16,16 +14,18 @@ async function initCommonApp() {
     if (!lineUserId && typeof CONFIG !== 'undefined' && CONFIG.LIFF_ID && typeof liff !== 'undefined') {
       try {
         await liff.init({ liffId: CONFIG.LIFF_ID });
+        
         if (liff.isLoggedIn()) {
           const profile = await liff.getProfile();
           lineUserId = profile.userId;
           lineDisplayName = profile.displayName || "LINEユーザー";
-        } else {
+        } else if (!liff.isInClient()) {
+          // LINEアプリ「外」の外部ブラウザの場合のみログインを実行
           liff.login();
           return null;
         }
       } catch (liffErr) {
-        console.warn("LIFF初期化エラー（ブラウザ直接アクセスの可能性）:", liffErr);
+        console.warn("LIFF初期化エラー:", liffErr);
       }
     }
 
@@ -64,7 +64,6 @@ async function initCommonApp() {
       localStorage.setItem('approvalStatus', approvalStatus);
     }
 
-    // 共通関数として定義されたUI更新を実行
     updateNavigationUI(roleDisplay, memberName);
 
     return lineUserId;
@@ -77,9 +76,6 @@ async function initCommonApp() {
   }
 }
 
-/**
- * ナビゲーションバーのUI（ユーザー名・権限バッジ・管理メニュー）を更新する関数
- */
 function updateNavigationUI(currentRole, memberName) {
   const roleStr = String(currentRole || "").trim();
   const nameStr = String(memberName || "").trim();
