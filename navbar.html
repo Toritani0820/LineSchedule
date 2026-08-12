@@ -1,11 +1,16 @@
+<!--
+==========================================
+共通ナビゲーションバー (navbar.html)
+2026/08/12 19:20
+==========================================
+-->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
   <div class="container-fluid">
-    <!-- アプリ名（navbar-brand）は非表示にするため削除／非表示化 -->
     
-    <!-- ユーザー情報表示エリア -->
+    <!-- ユーザー情報表示（アプリ名は非表示） -->
     <div class="navbar-text text-white me-auto">
-      <span id="nav-member-name" class="fw-bold"></span> 
-      <span id="nav-role" class="badge bg-secondary ms-2"></span>
+      <span id="nav-member-name" class="fw-bold">読み込み中...</span> 
+      <span id="nav-role" class="badge bg-secondary ms-2">-</span>
     </div>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="メニュー切り替え">
@@ -14,31 +19,26 @@
     
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav ms-auto align-items-center">
-        <!-- スケジュール一覧 -->
         <li class="nav-item">
           <a class="nav-link" href="schedule.html">スケジュール一覧</a>
         </li>
         
-        <!-- 統合管理ドロップダウンメニュー（権限に応じて表示制御） -->
+        <!-- 統合管理メニュー（世帯管理者 / 全体管理者向けドロップダウン） -->
         <li class="nav-item dropdown" id="nav-admin-menu" style="display: none;">
-          <a class="nav-link dropdown-toggle active" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <a class="nav-link dropdown-toggle text-warning fw-bold" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             管理メニュー
           </a>
           <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdown">
-            <!-- 世帯メンバー管理（世帯管理者以上） -->
             <li id="menu-item-members">
               <a class="dropdown-item" href="HouseholdMembers.html">世帯メンバー管理</a>
             </li>
-            <!-- 権限メンテナンス（システム・運用管理者） -->
             <li id="menu-item-user-maintenance" style="display: none;">
               <a class="dropdown-item" href="UserMaintenance.html">権限メンテナンス</a>
             </li>
-            <!-- 学校情報一括クリア（システム・運用管理者） -->
             <li id="menu-item-clear-school" style="display: none;">
               <a class="dropdown-item text-danger" href="#" onclick="handleBatchClearSchool()">学校情報一括クリア</a>
             </li>
             <li><hr class="dropdown-divider"></li>
-            <!-- 権限申請 -->
             <li id="menu-item-add-permission">
               <a class="dropdown-item" href="AddPermission.html">権限追加申請</a>
             </li>
@@ -48,3 +48,35 @@
     </div>
   </div>
 </nav>
+
+<script>
+  /**
+   * ナビゲーションバーのユーザー情報・権限別メニューの制御関数
+   * 各ページ（schedule.html等）から呼び出します
+   */
+  function updateNavigationUI(currentRole, memberName) {
+    const nameEl = document.getElementById("nav-member-name");
+    const roleEl = document.getElementById("nav-role");
+    
+    if (nameEl) nameEl.textContent = memberName || "ユーザー";
+    if (roleEl) roleEl.textContent = currentRole || "閲覧者";
+
+    const adminMenu = document.getElementById("nav-admin-menu");
+    const menuItemUserMaint = document.getElementById("menu-item-user-maintenance");
+    const menuItemClearSchool = document.getElementById("menu-item-clear-school");
+
+    if (!adminMenu) return;
+
+    const isGlobalAdmin = ["システム管理者", "運用管理者"].includes(currentRole);
+    const isHouseholdAdmin = (currentRole === "世帯管理者");
+
+    // 世帯管理者・全体管理者の場合に「管理メニュー」ドロップダウンを表示
+    if (isGlobalAdmin || isHouseholdAdmin) {
+      adminMenu.style.setProperty("display", "block", "important");
+      if (menuItemUserMaint) menuItemUserMaint.style.display = isGlobalAdmin ? "block" : "none";
+      if (menuItemClearSchool) menuItemClearSchool.style.display = isGlobalAdmin ? "block" : "none";
+    } else {
+      adminMenu.style.display = "none";
+    }
+  }
+</script>
