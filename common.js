@@ -1,7 +1,8 @@
 // ==========================================
 // 共通初期化・LINE LIFF認証管理 (common.js)
-// 更新日時: 2026/08/12 19:40
+// 更新日時: 2026/08/12 19:49
 // ==========================================
+
 
 async function initCommonApp() {
   try {
@@ -12,14 +13,19 @@ async function initCommonApp() {
     let lineDisplayName = "LINEユーザー";
 
     if (!lineUserId && typeof CONFIG !== 'undefined' && CONFIG.LIFF_ID && typeof liff !== 'undefined') {
-      await liff.init({ liffId: CONFIG.LIFF_ID });
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return null;
+      try {
+        await liff.init({ liffId: CONFIG.LIFF_ID });
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          lineUserId = profile.userId;
+          lineDisplayName = profile.displayName || "LINEユーザー";
+        } else {
+          liff.login();
+          return null;
+        }
+      } catch (liffErr) {
+        console.warn("LIFF初期化エラー（ブラウザ直接アクセスの可能性）:", liffErr);
       }
-      const profile = await liff.getProfile();
-      lineUserId = profile.userId;
-      lineDisplayName = profile.displayName || "LINEユーザー";
     }
 
     if (!lineUserId) {
@@ -29,35 +35,10 @@ async function initCommonApp() {
 
     showLoading(true);
 
-    // --- ユーザー状態のキャッシュ確認 ---
-    const cacheKey = `user_status_${lineUserId}`;
-    let result = null;
-    const cachedData = sessionStorage.getItem(cacheKey);
-
-    if (cachedData) {
-      try {
-        result = JSON.parse(cachedData);
-      } catch (e) {
-        sessionStorage.removeItem(cacheKey);
-      }
-    }
-
-    // キャッシュがない場合のみサーバーへ通信
-    if (!result) {
-      const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
-      const response = await fetch(url);
-      const text = await response.text();
-      
-      try {
-        result = JSON.parse(text);
-      } catch (e) {
-        throw new Error("サーバーから不正なデータが返されました。");
-      }
-
-      if (result.status === "success") {
-        sessionStorage.setItem(cacheKey, JSON.stringify(result));
-      }
-    }
+    const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
+    const response = await fetch(url);
+    const text = await response.text();
+    const result = JSON.parse(text);
 
     showLoading(false);
 
@@ -80,13 +61,9 @@ async function initCommonApp() {
       localStorage.setItem('memberName', memberName);
       localStorage.setItem('role', roleDisplay);
       localStorage.setItem('approvalStatus', approvalStatus);
-    } else {
-      localStorage.removeItem('memberName');
-      localStorage.removeItem('role');
-      localStorage.removeItem('approvalStatus');
     }
 
-    // ナビゲーション表示の統合更新
+    // 共通関数として定義されたUI更新を実行
     updateNavigationUI(roleDisplay, memberName);
 
     return lineUserId;
@@ -100,11 +77,44 @@ async function initCommonApp() {
 }
 
 /**
- * 権限変更時などにキャッシュを強制クリアするためのヘルパー関数
+ * ナビゲーションバーのUI（ユーザー名・権限バッジ・管理メニュー）を更新する関数
  */
-function clearUserStatusCache(lineUserId) {
-  if (lineUserId) {
-    sessionStorage.removeItem(`user_status_${lineUserId}`);
+function updateNavigationUI(currentRole, memberName) {
+  const roleStr = String(currentRole || "").trim();
+  const nameStr = String(memberName || "").trim();
+
+  const nameEl = document.getElementById("nav-member-name");
+  const roleEl = document.getElementById("nav-role");
+  if (nameEl) nameEl.textContent = nameStr || "ユーザー";
+  
+  if (roleEl) {
+    roleEl.textContent = roleStr || "閲覧者";
+    roleEl.className = "badge ms-2";
+    switch (roleStr) {
+      case "システム管理者": roleEl.classList.add("bg-danger"); break;
+      case "運用管理者": roleEl.classList.add("bg-warning", "text-dark"); break;
+      case "世帯管理者": roleEl.classList.add("bg-primary"); break;
+      case "予定回答者": roleEl.classList.add("bg-success"); break;
+      default: roleEl.classList.add("bg-secondary"); break;
+    }
+  }
+
+  const adminMenu = document.getElementById("nav-admin-menu");
+  const userMaintItem = document.getElementById("menu-item-user-maintenance");
+
+  if (!adminMenu) return;
+
+  const isGlobalAdmin = ["システム管理者", "運用管理者"].includes(roleStr);
+  const isHouseholdAdmin = (roleStr === "世帯管理者");
+
+  if (isGlobalAdmin || isHouseholdAdmin) {
+    adminMenu.classList.remove("d-none");
+    if (userMaintItem) {
+      if (isGlobalAdmin) userMaintItem.classList.remove("d-none");
+      else userMaintItem.classList.add("d-none");
+    }
+  } else {
+    adminMenu.classList.add("d-none");
   }
 }
 
@@ -113,16 +123,9 @@ async function loadNavbar() {
   if (!container) return;
 
   try {
-    const cacheKey = 'cached_navbar_html';
-    let navbarHtml = sessionStorage.getItem(cacheKey);
-
-    if (!navbarHtml) {
-      const res = await fetch('navbar.html');
-      if (!res.ok) return;
-      navbarHtml = await res.text();
-      sessionStorage.setItem(cacheKey, navbarHtml);
-    }
-
+    const res = await fetch('navbar.html');
+    if (!res.ok) return;
+    const navbarHtml = await res.text();
     container.innerHTML = navbarHtml;
 
     const togglerBtn = document.getElementById('nav-toggler-btn');
