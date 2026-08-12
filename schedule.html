@@ -1,7 +1,7 @@
 <!--
 ==========================================
 スケジュール管理画面 (schedule.html)
-2026/08/12 19:28
+更新日時: 2026/08/12 19:40
 ==========================================
 -->
 <!DOCTYPE html>
@@ -11,7 +11,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>スケジュール管理</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body class="bg-light">
 
@@ -49,34 +48,27 @@
     </div>
   </div>
 
+  <script src="config.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="common.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const GAS_WEB_APP_URL = "YOUR_GAS_WEB_APP_URL";
-    const LIFF_ID = "YOUR_LIFF_ID";
+    let currentUserLineUserId = "";
 
     document.addEventListener("DOMContentLoaded", initApp);
 
     async function initApp() {
-      try {
-        const navRes = await fetch("navbar.html");
-        document.getElementById("navbar-container").innerHTML = await navRes.text();
+      // common.js の共通認証・ヘッダー読み込みを実行
+      currentUserLineUserId = await initCommonApp();
+      if (!currentUserLineUserId) return;
 
-        await liff.init({ liffId: LIFF_ID });
-        if (!liff.isLoggedIn()) { liff.login(); return; }
-
-        const profile = await liff.getProfile();
-        const res = await fetch(`${GAS_WEB_APP_URL}?action=getValidHouseholds&lineUserId=${encodeURIComponent(profile.userId)}`);
-        const data = await res.json();
-
-        if (data.status === "success") {
-          updateNavigationUI(data.currentRole, profile.displayName);
-        }
-      } catch (err) {
-        console.error("初期化エラー:", err);
-      }
+      // 画面固有のデータ読み込み処理を呼び出し
+      loadSchedules();
     }
 
-    function loadSchedules() {}
+    function loadSchedules() {
+      // スケジュール一覧の取得処理をここに実装
+    }
   </script>
 </body>
 </html>
