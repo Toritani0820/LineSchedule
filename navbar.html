@@ -1,9 +1,8 @@
-<!--
-==========================================
-共通ナビゲーションバー (navbar.html)
-更新日時: 2026/08/12 19:40
-==========================================
--->
+//=========================================
+// 共通ナビゲーションバー (navbar.html)
+// 更新日時: 2026/08/12 19:40
+//==========================================
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
   <div class="container-fluid">
     
@@ -23,7 +22,7 @@
           <a class="nav-link active" href="schedule.html">スケジュール一覧</a>
         </li>
         
-        <!-- 管理メニュー（初期状態はd-noneクラスで非表示） -->
+        <!-- 管理メニュー -->
         <li class="nav-item dropdown d-none" id="nav-admin-menu">
           <a class="nav-link dropdown-toggle text-warning fw-bold" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             管理メニュー
@@ -45,47 +44,3 @@
     </div>
   </div>
 </nav>
-
-<script>
-  /**
-   * ユーザー情報および管理メニュー表示更新の統一関数
-   */
-  function updateNavigationUI(currentRole, memberName) {
-    const roleStr = String(currentRole || "").trim();
-    const nameStr = String(memberName || "").trim();
-
-    const nameEl = document.getElementById("nav-member-name");
-    const roleEl = document.getElementById("nav-role");
-    if (nameEl) nameEl.textContent = nameStr || "ユーザー";
-    
-    if (roleEl) {
-      roleEl.textContent = roleStr || "閲覧者";
-      roleEl.className = "badge ms-2";
-      switch (roleStr) {
-        case "システム管理者": roleEl.classList.add("bg-danger"); break;
-        case "運用管理者": roleEl.classList.add("bg-warning", "text-dark"); break;
-        case "世帯管理者": roleEl.classList.add("bg-primary"); break;
-        case "予定回答者": roleEl.classList.add("bg-success"); break;
-        default: roleEl.classList.add("bg-secondary"); break;
-      }
-    }
-
-    const adminMenu = document.getElementById("nav-admin-menu");
-    const userMaintItem = document.getElementById("menu-item-user-maintenance");
-
-    if (!adminMenu) return;
-
-    const isGlobalAdmin = ["システム管理者", "運用管理者"].includes(roleStr);
-    const isHouseholdAdmin = (roleStr === "世帯管理者");
-
-    if (isGlobalAdmin || isHouseholdAdmin) {
-      adminMenu.classList.remove("d-none");
-      if (userMaintItem) {
-        if (isGlobalAdmin) userMaintItem.classList.remove("d-none");
-        else userMaintItem.classList.add("d-none");
-      }
-    } else {
-      adminMenu.classList.add("d-none");
-    }
-  }
-</script>
