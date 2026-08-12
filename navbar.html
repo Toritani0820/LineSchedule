@@ -1,7 +1,7 @@
 <!--
 ==========================================
 共通ナビゲーションバー (navbar.html)
-2026/08/12 19:25
+更新日時: 2026/08/12 19:40
 ==========================================
 -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
@@ -13,7 +13,7 @@
       <span id="nav-role" class="badge bg-secondary ms-2">-</span>
     </div>
 
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="メニュー切り替え">
+    <button id="nav-toggler-btn" class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="メニュー切り替え">
       <span class="navbar-toggler-icon"></span>
     </button>
     
@@ -32,7 +32,7 @@
             <li id="menu-item-members">
               <a class="dropdown-item" href="HouseholdMembers.html">世帯メンバー管理</a>
             </li>
-            <li id="menu-item-user-maintenance" class="d-none" id="li-user-maint">
+            <li id="menu-item-user-maintenance" class="d-none">
               <a class="dropdown-item" href="UserMaintenance.html">権限メンテナンス</a>
             </li>
             <li><hr class="dropdown-divider"></li>
@@ -47,25 +47,39 @@
 </nav>
 
 <script>
+  /**
+   * ユーザー情報および管理メニュー表示更新の統一関数
+   */
   function updateNavigationUI(currentRole, memberName) {
+    const roleStr = String(currentRole || "").trim();
+    const nameStr = String(memberName || "").trim();
+
     const nameEl = document.getElementById("nav-member-name");
     const roleEl = document.getElementById("nav-role");
+    if (nameEl) nameEl.textContent = nameStr || "ユーザー";
     
-    if (nameEl) nameEl.textContent = memberName || "ユーザー";
-    if (roleEl) roleEl.textContent = currentRole || "閲覧者";
+    if (roleEl) {
+      roleEl.textContent = roleStr || "閲覧者";
+      roleEl.className = "badge ms-2";
+      switch (roleStr) {
+        case "システム管理者": roleEl.classList.add("bg-danger"); break;
+        case "運用管理者": roleEl.classList.add("bg-warning", "text-dark"); break;
+        case "世帯管理者": roleEl.classList.add("bg-primary"); break;
+        case "予定回答者": roleEl.classList.add("bg-success"); break;
+        default: roleEl.classList.add("bg-secondary"); break;
+      }
+    }
 
     const adminMenu = document.getElementById("nav-admin-menu");
-    const userMaintItem = document.getElementById("li-user-maint");
+    const userMaintItem = document.getElementById("menu-item-user-maintenance");
 
     if (!adminMenu) return;
 
-    const isGlobalAdmin = ["システム管理者", "運用管理者"].includes(currentRole);
-    const isHouseholdAdmin = (currentRole === "世帯管理者");
+    const isGlobalAdmin = ["システム管理者", "運用管理者"].includes(roleStr);
+    const isHouseholdAdmin = (roleStr === "世帯管理者");
 
-    // 世帯管理者・全体管理者の場合、「管理メニュー」を表示
     if (isGlobalAdmin || isHouseholdAdmin) {
       adminMenu.classList.remove("d-none");
-      
       if (userMaintItem) {
         if (isGlobalAdmin) userMaintItem.classList.remove("d-none");
         else userMaintItem.classList.add("d-none");
