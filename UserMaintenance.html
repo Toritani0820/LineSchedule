@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アクセス権メンテナンス</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+  <div id="navbar-container"></div>
+  
+  <div class="container my-4">
+    <h2 class="mb-4">アクセス権メンテナンス</h2>
+
+    <div class="card p-3 mb-4 shadow-sm">
+      <div class="row g-3">
+        <div class="col-md-12">
+          <label class="form-label fw-bold">対象世帯ID</label>
+          <select id="filterHouseholdId" class="form-select" disabled>
+            <option value="">読み込み中...</option>
+          </select>
+        </div>
+        
+        <div class="col-md-4">
+          <label class="form-label fw-bold">アクセス権（ロール）</label>
+          <select id="filterRole" class="form-select">
+            <option value="">すべて</option>
+            <option value="システム管理者">システム管理者</option>
+            <option value="運用管理者">運用管理者</option>
+            <option value="世帯管理者">世帯管理者</option>
+            <option value="予定回答者">予定回答者</option>
+            <option value="閲覧者">閲覧者</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-bold">承認状態</label>
+          <select id="filterApprovalStatus" class="form-select">
+            <option value="">すべて</option>
+            <option value="承認済">承認済</option>
+            <option value="利用禁止">利用禁止</option>
+            <option value="申請中">申請中</option>
+          </select>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+          <button id="btnSearch" class="btn btn-primary w-100 fw-bold" onclick="loadPermissionsList()" disabled>【検 索】</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="table-responsive">
+        <table class="table table-bordered align-middle mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>氏名</th>
+              <th>LINE表示名</th>
+              <th>アクセス権</th>
+              <th>申請種別</th>
+              <th>世帯ID</th>
+              <th>承認状態</th>
+              <th>利用開始日</th>
+              <th>運用終了日</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="permissionTableBody">
+            <tr><td colspan="9" class="text-center text-muted">検索ボタンを押してデータを表示してください</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">アクセス権の変更</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editLineUserId">
+          <input type="hidden" id="editTargetHouseholdId">
+          
+          <p>対象者: <span id="editMemberName" class="fw-bold"></span></p>
+
+          <div class="mb-3">
+            <label class="form-label">承認ステータス</label>
+            <select id="editApprovalStatus" class="form-select">
+              <option value="承認済">承認済</option>
+              <option value="申請中">申請中</option>
+              <option value="利用禁止">利用禁止</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">アクセス権（ロール）</label>
+            <select id="editRole" class="form-select">
+              <option value="システム管理者">システム管理者</option>
+              <option value="運用管理者">運用管理者</option>
+              <option value="世帯管理者">世帯管理者</option>
+              <option value="予定回答者">予定回答者</option>
+              <option value="閲覧者">閲覧者</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">運用終了日（任意）</label>
+            <input type="date" id="editEndDate" class="form-control">
+            <div class="form-text">空欄の場合は無期限となります。</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">備考 (note)</label>
+            <textarea id="editNote" class="form-control" rows="2" placeholder="備考があれば入力してください"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+          <button type="button" class="btn btn-success" onclick="submitPermissionUpdate()">保存する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="common.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let currentUserLineUserId = "";
+    let currentUserRole = "";
+
+    const ROLE_HIERARCHY = ["システム管理者", "運用管理者", "世帯管理者", "予定回答者", "閲覧者"];
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      currentUserLineUserId = await initCommonApp();
+      if (!currentUserLineUserId) return;
+      
+      await initializeMaintenanceView();
+    });
+
+    async function initializeMaintenanceView() {
+      try {
+        const url = `${CONFIG.GAS_WEB_APP_URL}?action=getValidHouseholds&lineUserId=${encodeURIComponent(currentUserLineUserId)}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.status === "success") {
+          currentUserRole = result.currentRole;
+          populateHouseholdDropdown(result.data, currentUserRole, result.currentHouseholdId);
+          restrictRoleSelection(currentUserRole);
+          document.getElementById("btnSearch").disabled = false;
+        } else {
+          alert("初期データの取得に失敗しました: " + (result.message || ""));
+        }
+      } catch (err) {
+        console.error("初期セットアップエラー:", err);
+        alert("通信エラーが発生しました。画面を再読み込みしてください。");
+      }
+    }
+
+    function populateHouseholdDropdown(households, role, currentHouseholdId) {
+      const selectEl = document.getElementById("filterHouseholdId");
+      selectEl.innerHTML = "";
+      const isGlobalAdmin = (role === "システム管理者" || role === "運用管理者");
+    
+      if (isGlobalAdmin) {
+        const allOption = document.createElement("option");
+        allOption.value = "";
+        allOption.textContent = "すべて";
+        selectEl.appendChild(allOption);
+      }
+    
+      if (households && households.length > 0) {
+        households.forEach(hh => {
+          const option = document.createElement("option");
+          option.value = hh.householdId;
+          option.textContent = `${hh.householdId}（${hh.householdName}）`;
+          selectEl.appendChild(option);
+        });
+      }
+    
+      if (!isGlobalAdmin) {
+        if (households && households.length === 1) {
+          selectEl.value = households[0].householdId;
+          selectEl.disabled = true;
+          selectEl.classList.add("bg-light");
+        } else if (households && households.length > 1) {
+          selectEl.value = currentHouseholdId || households[0].householdId;
+          selectEl.disabled = false;
+          selectEl.classList.remove("bg-light");
+        } else {
+          selectEl.disabled = true;
+        }
+      } else {
+        selectEl.disabled = false;
+        selectEl.classList.remove("bg-light");
+      }
+    }
+
+    function restrictRoleSelection(userRole) {
+      const userRoleIndex = ROLE_HIERARCHY.indexOf(userRole);
+      if (userRoleIndex === -1) return;
+
+      const filterRoleSelect = document.getElementById("filterRole");
+      const editRoleSelect = document.getElementById("editRole");
+
+      [filterRoleSelect, editRoleSelect].forEach(selectEl => {
+        Array.from(selectEl.options).forEach(option => {
+          if (!option.value) return;
+          const optionIndex = ROLE_HIERARCHY.indexOf(option.value);
+          if (optionIndex < userRoleIndex) {
+            option.disabled = true;
+            option.classList.add("d-none");
+          }
+        });
+      });
+    }
+
+    function getRoleBadgeClass(role) {
+      switch (role) {
+        case "システム管理者": return "bg-danger";
+        case "運用管理者":     return "bg-warning text-dark";
+        case "世帯管理者":     return "bg-primary";
+        case "予定回答者":     return "bg-success";
+        case "閲覧者":
+        default:               return "bg-secondary";
+      }
+    }
+
+    async function loadPermissionsList() {
+      if (!currentUserLineUserId) {
+        currentUserLineUserId = await initCommonApp();
+        if (!currentUserLineUserId) {
+          alert("ユーザー認証情報を取得できませんでした。ページを再読み込みしてください。");
+          return;
+        }
+      }
+
+      const tbody = document.getElementById("permissionTableBody");
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">読み込み中...</td></tr>`;
+
+      const filters = {
+        role: document.getElementById("filterRole").value,
+        approvalStatus: document.getElementById("filterApprovalStatus").value,
+        targetHouseholdId: document.getElementById("filterHouseholdId").value
+      };
+
+      try {
+        const url = `${CONFIG.GAS_WEB_APP_URL}?action=getPermissionsList&lineUserId=${encodeURIComponent(currentUserLineUserId)}&filterRole=${encodeURIComponent(filters.role)}&filterApprovalStatus=${encodeURIComponent(filters.approvalStatus)}&filterHouseholdId=${encodeURIComponent(filters.targetHouseholdId)}`;
+
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.status === "error") {
+          alert(result.message);
+          return;
+        }
+
+        renderTable(result.data, currentUserLineUserId);
+      } catch (err) {
+        console.error("データ取得エラー:", err);
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">データの取得に失敗しました。</td></tr>`;
+      }
+    }
+
+    function renderTable(dataList, currentUserId) {
+      const tbody = document.getElementById("permissionTableBody");
+      tbody.innerHTML = "";
+
+      if (!dataList || dataList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">該当するユーザーがいません。</td></tr>`;
+        return;
+      }
+
+      dataList.forEach(item => {
+        const isSelf = (item.lineUserId === currentUserId);
+        const isOpsAdmin = (currentUserRole === "運用管理者");
+        const isTargetSystemAdmin = (item.role === "システム管理者");
+        const canEdit = !isSelf && !(isOpsAdmin && isTargetSystemAdmin);
+        const hasNote = item.note && item.note.trim() !== "";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td ${hasNote ? 'rowspan="2"' : ''}>${escapeHTML(item.memberName)}</td>
+          <td>${escapeHTML(item.lineDisplayName)}</td>
+          <td><span class="badge ${getRoleBadgeClass(item.role)}">${escapeHTML(item.role)}</span></td>
+          <td>${escapeHTML(item.applicationType)}</td>
+          <td>${escapeHTML(item.targetHouseholdId)}</td>
+          <td><span class="badge ${item.approvalStatus === '承認済' ? 'bg-success' : (item.approvalStatus === '利用禁止' ? 'bg-danger' : 'bg-warning text-dark')}">${escapeHTML(item.approvalStatus)}</span></td>
+          <td>${escapeHTML(item.startDate)}</td>
+          <td>${escapeHTML(item.endDate || '無期限')}</td>
+          <td>
+            ${isSelf ? '<span class="text-muted small">編集不可(自分)</span>' : 
+              (canEdit 
+                ? `<button class="btn btn-sm btn-outline-primary" onclick='openEditModal(${JSON.stringify(item)})'>編集</button>`
+                : `<span class="text-muted small">編集不可</span>`
+              )
+            }
+          </td>
+        `;
+        tbody.appendChild(tr);
+
+        if (hasNote) {
+          const trNote = document.createElement("tr");
+          trNote.className = "table-light";
+          trNote.innerHTML = `
+            <td colspan="8" class="text-muted small px-3 py-1">
+              <strong>【備考】:</strong> ${escapeHTML(item.note)}
+            </td>
+          `;
+          tbody.appendChild(trNote);
+        }
+      });
+    }
+
+    function openEditModal(item) {
+      document.getElementById("editLineUserId").value = item.lineUserId;
+      document.getElementById("editTargetHouseholdId").value = item.targetHouseholdId;
+      document.getElementById("editMemberName").textContent = item.memberName;
+      document.getElementById("editApprovalStatus").value = item.approvalStatus;
+      document.getElementById("editNote").value = item.note || "";
+      
+      const editRoleSelect = document.getElementById("editRole");
+      const targetRoleOption = Array.from(editRoleSelect.options).find(opt => opt.value === item.role);
+      
+      if (targetRoleOption && targetRoleOption.disabled) {
+        const tempOption = document.createElement("option");
+        tempOption.value = item.role;
+        tempOption.textContent = item.role + " (変更不可)";
+        editRoleSelect.appendChild(tempOption);
+        editRoleSelect.value = item.role;
+        editRoleSelect.disabled = true;
+      } else {
+        editRoleSelect.disabled = false;
+        editRoleSelect.value = item.role;
+      }
+
+      document.getElementById("editEndDate").value = item.endDate || "";
+      const modal = new bootstrap.Modal(document.getElementById("editModal"));
+      modal.show();
+    }
+
+    async function submitPermissionUpdate() {
+      const updateData = {
+        action: "updatePermission",
+        lineUserId: currentUserLineUserId,
+        targetLineUserId: document.getElementById("editLineUserId").value,
+        targetHouseholdId: document.getElementById("editTargetHouseholdId").value,
+        approvalStatus: document.getElementById("editApprovalStatus").value,
+        role: document.getElementById("editRole").value,
+        endDate: document.getElementById("editEndDate").value,
+        note: document.getElementById("editNote").value
+      };
+
+      try {
+        const response = await fetch(CONFIG.GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify(updateData),
+          headers: { "Content-Type": "text/plain;charset=utf-8" }
+        });
+        const result = await response.json();
+
+        if (result.status === "error") {
+          alert(result.message);
+          return;
+        }
+        alert(result.message);
+        const modalEl = document.getElementById("editModal");
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+        loadPermissionsList();
+      } catch (err) {
+        console.error("更新エラー:", err);
+        alert("更新処理に失敗しました。");
+      }
+    }
+  </script>
+</body>
+</html>

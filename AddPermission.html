@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>追加権限の申請</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+  <div id="navbar-container"></div>
+
+  <div class="container my-4" style="max-width: 600px;">
+    <h3 class="mb-4 text-center">追加権限の申請</h3>
+
+    <div id="pendingAlert" class="alert alert-warning shadow-sm d-none mb-4" role="alert">
+      <h5 class="alert-heading fw-bold mb-2">💡 承認待ちの申請があります</h5>
+      <p class="mb-1">現在、以下の内容で申請を受け付け、承認待ちとなっています。</p>
+      <hr class="my-2">
+      <div id="pendingDetails" class="small"></div>
+    </div>
+
+    <div class="card shadow-sm p-4">
+      <form id="addPermissionForm" onsubmit="event.preventDefault(); submitAddApplication();">
+        <div class="mb-3">
+          <label class="form-label fw-bold">申請する権限</label>
+          <select id="applyRole" class="form-select" required onchange="toggleHouseholdInputs()">
+            <option value="">選択してください</option>
+            <option value="世帯管理者">世帯管理者</option>
+            <option value="予定回答者">予定回答者</option>
+            <option value="閲覧者">閲覧者</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">対象世帯ID</label>
+          <input type="text" id="targetHouseholdId" class="form-control" placeholder="例: HH10001" required>
+        </div>
+
+        <div class="mb-3 d-none" id="householdNameGroup">
+          <label class="form-label fw-bold">新規世帯名（新しく世帯を作成する場合のみ入力）</label>
+          <input type="text" id="householdName" class="form-control" placeholder="例: 山田家">
+          <div class="form-text">既存世帯の管理者になる場合は空欄のままにしてください。</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">備考 (理由・補足など)</label>
+          <textarea id="note" class="form-control" rows="2" placeholder="追加申請の理由などがあれば入力してください"></textarea>
+        </div>
+
+        <button type="submit" id="btnSubmit" class="btn btn-primary w-100 fw-bold mt-3">追加申請を送信する</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="common.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let lineUserId = "";
+    let lineDisplayName = "";
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      lineUserId = await initCommonApp();
+      if (!lineUserId) return;
+
+      if (typeof liff !== "undefined" && liff.isLoggedIn()) {
+        const profile = await liff.getProfile();
+        lineDisplayName = profile.displayName || "";
+      }
+
+      await checkPendingStatus();
+    });
+
+    async function checkPendingStatus() {
+      try {
+        const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
+        const response = await fetch(url);
+        const result = await response.json();
+    
+        if (result.status === "success" && result.hasPending && result.pendingInfo) {
+          const alertBox = document.getElementById("pendingAlert");
+          const detailsBox = document.getElementById("pendingDetails");
+          
+          detailsBox.innerHTML = `
+            <div><strong>申請種別:</strong> ${escapeHTML(result.pendingInfo.applicationType || "権限追加")}</div>
+            <div><strong>申請権限:</strong> ${escapeHTML(result.pendingInfo.role || "未設定")}</div>
+            <div><strong>対象世帯ID:</strong> ${escapeHTML(result.pendingInfo.targetHouseholdId || "未設定")}</div>
+            <div><strong>ステータス:</strong> <span class="badge bg-warning text-dark">${escapeHTML(result.pendingInfo.approvalStatus)}</span></div>
+          `;
+          alertBox.classList.remove("d-none");
+        }
+      } catch (err) {
+        console.error("ステータス確認エラー:", err);
+      }
+    }
+
+    function toggleHouseholdInputs() {
+      const role = document.getElementById("applyRole").value;
+      const householdNameGroup = document.getElementById("householdNameGroup");
+      if (role === "世帯管理者") {
+        householdNameGroup.classList.remove("d-none");
+      } else {
+        householdNameGroup.classList.add("d-none");
+        document.getElementById("householdName").value = "";
+      }
+    }
+
+    async function submitAddApplication() {
+      const role = document.getElementById("applyRole").value;
+      const targetHouseholdId = document.getElementById("targetHouseholdId").value.trim();
+      const householdName = document.getElementById("householdName").value.trim();
+      const note = document.getElementById("note").value.trim();
+      const memberName = localStorage.getItem("memberName") || lineDisplayName || "";
+
+      if (!role || !targetHouseholdId) {
+        alert("必須項目をすべて入力してください。");
+        return;
+      }
+
+      const btnSubmit = document.getElementById("btnSubmit");
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = "送信中...";
+
+      const payload = {
+        action: "applyRole",
+        lineUserId: lineUserId,
+        lineDisplayName: lineDisplayName,
+        memberName: memberName,
+        role: role,
+        applicationType: "権限追加",
+        targetHouseholdId: targetHouseholdId,
+        householdName: householdName,
+        note: note
+      };
+
+      try {
+        const response = await fetch(CONFIG.GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "text/plain;charset=utf-8" }
+        });
+        const result = await response.json();
+
+        if (result.status === "error") {
+          alert(result.message);
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = "追加申請を送信する";
+          return;
+        }
+
+        alert("追加申請を受け付けました。承認をお待ちください。");
+        window.location.reload();
+      } catch (err) {
+        console.error("送信エラー:", err);
+        alert("送信処理に失敗しました。");
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = "追加申請を送信する";
+      }
+    }
+  </script>
+</body>
+</html>

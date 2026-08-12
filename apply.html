@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>利用申請・マイページ</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light text-dark">
+  
+  <div id="navbar-container"></div>
+
+  <div class="container my-4" style="max-width: 500px;">
+    <!-- マイページ/ステータスカード -->
+    <div class="card shadow-sm p-4 mb-4">
+      <h2 class="h4 fw-bold mb-3">マイページ</h2>
+      <p id="status-display" class="fw-medium small text-secondary">ステータスを確認中...</p>
+    </div>
+
+    <div id="app-message-box" class="d-none mb-3 p-3 rounded small"></div>
+
+    <!-- 申請フォーム -->
+    <div id="registration-card" class="card shadow-sm p-4 d-none">
+      <h3 class="h5 fw-bold mb-3">利用申請 / 管理者・権限設定</h3>
+      
+      <form id="reg-form" onsubmit="event.preventDefault(); submitApplication();">
+        <div class="mb-3">
+          <label class="form-label fw-bold small">LINE表示名</label>
+          <input type="text" id="lineDisplayName" readonly class="form-control bg-light form-control-sm" lang="ja">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold small">氏名 <span class="text-danger">*</span></label>
+          <input type="text" id="fullName" required class="form-control form-control-sm" lang="ja" autocomplete="name" placeholder="例: 山田 太郎">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold small">希望権限 <span class="text-danger">*</span></label>
+          <select id="role" class="form-select form-select-sm bg-white"></select>
+        </div>
+
+        <div id="field-applicationType" class="mb-3 d-none">
+          <label class="form-label fw-bold small">申請種別</label>
+          <select id="applicationType" class="form-select form-select-sm bg-white">
+            <option value="新規登録">新規登録</option>
+            <option value="管理者追加">管理者追加</option>
+          </select>
+        </div>
+
+        <div id="field-targetHouseholdId" class="mb-3 d-none">
+          <label class="form-label fw-bold small">世帯ID <span class="text-danger">*</span></label>
+          <input type="text" id="targetHouseholdId" class="form-control form-control-sm" placeholder="世帯IDを入力">
+        </div>
+
+        <div id="field-householdName" class="mb-3 d-none">
+          <label class="form-label fw-bold small">世帯名 <span class="text-danger">*</span></label>
+          <input type="text" id="householdName" class="form-control form-control-sm" lang="ja" placeholder="例: 山田家">
+        </div>
+
+        <div id="field-note" class="mb-3 d-none">
+          <label class="form-label fw-bold small">備考</label>
+          <input type="text" id="note" class="form-control form-control-sm" placeholder="追加申請の理由やメモを入力">
+        </div>
+
+        <div id="field-keyword" class="mb-3 d-none">
+          <label class="form-label fw-bold small">システム管理者キーワード <span class="text-danger">*</span></label>
+          <input type="password" id="adminKeyword" class="form-control form-control-sm" placeholder="キーワードを入力">
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn btn-primary w-100 fw-bold btn-sm py-2">申請する</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="common.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="apply.js"></script>
+</body>
+</html>
