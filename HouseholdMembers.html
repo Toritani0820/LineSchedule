@@ -12,7 +12,10 @@
   <div id="navbar-container"></div>
 
   <div class="container my-4">
-    <h2 class="mb-4">世帯メンバー管理</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2>世帯メンバー管理</h2>
+      <button class="btn btn-primary fw-bold" onclick="openMemberModal()">＋ メンバー追加</button>
+    </div>
 
     <!-- 対象世帯 選択エリア -->
     <div class="card p-3 mb-4 shadow-sm">
@@ -36,15 +39,68 @@
               <tr>
                 <th>氏名</th>
                 <th>よみかた</th>
-                <th>LINE表示名</th>
-                <th>アクセス権</th>
-                <th>承認状態</th>
+                <th>学校</th>
+                <th>学年 / 組</th>
+                <th>利用開始日</th>
+                <th>運用終了日</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody id="memberTableBody">
-              <tr><td colspan="5" class="text-center text-muted">データを読み込み中...</td></tr>
+              <tr><td colspan="7" class="text-center text-muted">データを読み込み中...</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- メンバー追加・編集モーダル -->
+  <div class="modal fade" id="memberModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalTitle">メンバー情報の登録</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editMemberId">
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">氏名 <span class="text-danger">*</span></label>
+            <input type="text" id="editMemberName" class="form-control" placeholder="例: 山田 太郎" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">よみかた</label>
+            <input type="text" id="editMemberNameKana" class="form-control" placeholder="例: やまだ たろう">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">学校名 / 所属</label>
+            <input type="text" id="editSchoolId" class="form-control" placeholder="例: 第一小学校">
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-bold">学年</label>
+              <input type="text" id="editGradeId" class="form-control" placeholder="例: 3年">
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-bold">組・クラス</label>
+              <input type="text" id="editSchoolYearClass" class="form-control" placeholder="例: 1組">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">運用終了日</label>
+            <input type="date" id="editEndDate" class="form-control">
+            <div class="form-text">未入力の場合は無期限となります。</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+          <button type="button" class="btn btn-success fw-bold" onclick="submitMemberSave()">保存する</button>
         </div>
       </div>
     </div>
@@ -66,9 +122,6 @@
       await initializeHouseholdView();
     });
 
-    /**
-     * 初期表示処理：権限に応じた対象世帯一覧を取得してドロップダウンに設定
-     */
     async function initializeHouseholdView() {
       try {
         const url = `${CONFIG.GAS_WEB_APP_URL}?action=getValidHouseholds&lineUserId=${encodeURIComponent(currentUserLineUserId)}`;
@@ -78,21 +131,16 @@
         if (result && result.status === "success") {
           currentUserRole = result.currentRole;
           populateHouseholdDropdown(result.data, currentUserRole, result.currentHouseholdId);
-          
-          // 世帯一覧の選択に合わせてメンバー一覧を読み込み
           await loadHouseholdMembers();
         } else {
           alert("世帯情報の取得に失敗しました: " + (result ? result.message : ""));
         }
       } catch (err) {
-        console.error("初期化エラー詳細:", err);
-        alert("通信エラーが発生しました。開発者ツールのConsoleタブをご確認ください。");
+        console.error("初期化エラー:", err);
+        alert("通信エラーが発生しました。");
       }
     }
 
-    /**
-     * 対象世帯ドロップダウンの構築（UserMaintenance.htmlと共通ロジック）
-     */
     function populateHouseholdDropdown(households, role, currentHouseholdId) {
       const selectEl = document.getElementById("filterHouseholdId");
       selectEl.innerHTML = "";
@@ -132,12 +180,9 @@
       }
     }
 
-    /**
-     * 選択中の対象世帯に所属するメンバー一覧を取得・表示
-     */
     async function loadHouseholdMembers() {
       const tbody = document.getElementById("memberTableBody");
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">読み込み中...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">読み込み中...</td></tr>`;
 
       const targetHouseholdId = document.getElementById("filterHouseholdId").value;
 
@@ -149,38 +194,113 @@
         if (result.status === "success") {
           const members = result.members || result.data || [];
           if (members.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">所属メンバーはいません。</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">所属メンバーはいません。</td></tr>`;
             return;
           }
 
           tbody.innerHTML = "";
           members.forEach(m => {
             const tr = document.createElement("tr");
+            const classInfo = [m.gradeId, m.schoolYearClass].filter(Boolean).join(" / ") || "-";
             tr.innerHTML = `
-              <td>${escapeHTML(m.memberName || "未設定")}</td>
+              <td class="fw-bold">${escapeHTML(m.memberName || "未設定")}</td>
               <td>${escapeHTML(m.memberNameKana || "-")}</td>
-              <td>${escapeHTML(m.lineDisplayName || "-")}</td>
-              <td><span class="badge ${getRoleBadgeClass(m.role)}">${escapeHTML(m.role || "閲覧者")}</span></td>
-              <td><span class="badge ${m.approvalStatus === '承認済' ? 'bg-success' : 'bg-secondary'}">${escapeHTML(m.approvalStatus || "未設定")}</span></td>
+              <td>${escapeHTML(m.schoolId || "-")}</td>
+              <td>${escapeHTML(classInfo)}</td>
+              <td>${escapeHTML(m.startDate || "-")}</td>
+              <td>${escapeHTML(m.endDate || "無期限")}</td>
+              <td>
+                <button class="btn btn-sm btn-outline-primary" onclick='openMemberModal(${JSON.stringify(m)})'>編集</button>
+              </td>
             `;
             tbody.appendChild(tr);
           });
         } else {
-          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-info">${escapeHTML(result.message || "データの取得に失敗しました。")}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" class="text-center text-info">${escapeHTML(result.message || "データの取得に失敗しました。")}</td></tr>`;
         }
       } catch (err) {
         console.error("メンバー取得エラー:", err);
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">通信処理中にエラーが発生しました。</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">通信処理中にエラーが発生しました。</td></tr>`;
       }
     }
 
-    function getRoleBadgeClass(role) {
-      switch (role) {
-        case "システム管理者": return "bg-danger";
-        case "運用管理者":     return "bg-warning text-dark";
-        case "世帯管理者":     return "bg-primary";
-        case "予定回答者":     return "bg-success";
-        default:               return "bg-secondary";
+    function openMemberModal(item = null) {
+      const targetHouseholdId = document.getElementById("filterHouseholdId").value;
+      if (!targetHouseholdId) {
+        alert("対象世帯を選択してください。");
+        return;
+      }
+
+      if (item) {
+        document.getElementById("modalTitle").textContent = "メンバー情報の変更";
+        document.getElementById("editMemberId").value = item.memberId || "";
+        document.getElementById("editMemberName").value = item.memberName || "";
+        document.getElementById("editMemberNameKana").value = item.memberNameKana || "";
+        document.getElementById("editSchoolId").value = item.schoolId || "";
+        document.getElementById("editGradeId").value = item.gradeId || "";
+        document.getElementById("editSchoolYearClass").value = item.schoolYearClass || "";
+        document.getElementById("editEndDate").value = item.endDate || "";
+      } else {
+        document.getElementById("modalTitle").textContent = "新規メンバーの登録";
+        document.getElementById("editMemberId").value = "";
+        document.getElementById("editMemberName").value = "";
+        document.getElementById("editMemberNameKana").value = "";
+        document.getElementById("editSchoolId").value = "";
+        document.getElementById("editGradeId").value = "";
+        document.getElementById("editSchoolYearClass").value = "";
+        document.getElementById("editEndDate").value = "";
+      }
+
+      const modal = new bootstrap.Modal(document.getElementById("memberModal"));
+      modal.show();
+    }
+
+    async function submitMemberSave() {
+      const memberName = document.getElementById("editMemberName").value.trim();
+      const targetHouseholdId = document.getElementById("filterHouseholdId").value;
+
+      if (!memberName) {
+        alert("氏名は必須入力項目です。");
+        return;
+      }
+
+      const saveData = {
+        action: "saveMember",
+        lineUserId: currentUserLineUserId,
+        memberData: {
+          memberId: document.getElementById("editMemberId").value,
+          memberName: memberName,
+          memberNameKana: document.getElementById("editMemberNameKana").value.trim(),
+          householdId: targetHouseholdId,
+          schoolId: document.getElementById("editSchoolId").value.trim(),
+          gradeId: document.getElementById("editGradeId").value.trim(),
+          schoolYearClass: document.getElementById("editSchoolYearClass").value.trim(),
+          endDate: document.getElementById("editEndDate").value
+        }
+      };
+
+      try {
+        const response = await fetch(CONFIG.GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify(saveData),
+          headers: { "Content-Type": "text/plain;charset=utf-8" }
+        });
+        const result = await response.json();
+
+        if (result.status === "error") {
+          alert("保存エラー: " + result.message);
+          return;
+        }
+
+        alert(result.message || "保存が完了しました。");
+        const modalEl = document.getElementById("memberModal");
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+
+        await loadHouseholdMembers();
+      } catch (err) {
+        console.error("保存エラー:", err);
+        alert("保存処理に失敗しました。");
       }
     }
   </script>
