@@ -1,7 +1,7 @@
 <!--
 ==========================================
 アクセス権メンテナンス画面 (UserMaintenance.html)
-更新日時: 2026/08/12 19:31
+更新日時: 2026/08/13
 ==========================================
 -->
 <!DOCTYPE html>
@@ -79,6 +79,7 @@
     </div>
   </div>
 
+  <!-- 編集モーダル -->
   <div class="modal fade" id="editModal" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -201,7 +202,7 @@
       if (households && households.length > 0) {
         households.forEach(hh => {
           const option = document.createElement("option");
-          option.value = hh.householdId;
+          option.value = hh.householdId || "";
           option.textContent = `${hh.householdId}（${hh.householdName}）`;
           selectEl.appendChild(option);
         });
@@ -268,9 +269,9 @@
       tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">読み込み中...</td></tr>`;
 
       const filters = {
-        role: document.getElementById("filterRole").value,
-        approvalStatus: document.getElementById("filterApprovalStatus").value,
-        targetHouseholdId: document.getElementById("filterHouseholdId").value
+        role: document.getElementById("filterRole").value.trim(),
+        approvalStatus: document.getElementById("filterApprovalStatus").value.trim(),
+        targetHouseholdId: document.getElementById("filterHouseholdId").value.trim()
       };
 
       try {
@@ -313,7 +314,7 @@
           <td>${escapeHTML(item.lineDisplayName)}</td>
           <td><span class="badge ${getRoleBadgeClass(item.role)}">${escapeHTML(item.role)}</span></td>
           <td>${escapeHTML(item.applicationType)}</td>
-          <td>${escapeHTML(item.targetHouseholdId)}</td>
+          <td>${escapeHTML(item.targetHouseholdId || "-")}</td>
           <td><span class="badge ${item.approvalStatus === '承認済' ? 'bg-success' : (item.approvalStatus === '利用禁止' ? 'bg-danger' : 'bg-warning text-dark')}">${escapeHTML(item.approvalStatus)}</span></td>
           <td>${escapeHTML(item.startDate)}</td>
           <td>${escapeHTML(item.endDate || '無期限')}</td>
@@ -343,12 +344,18 @@
 
     function openEditModal(item) {
       document.getElementById("editLineUserId").value = item.lineUserId;
-      document.getElementById("editTargetHouseholdId").value = item.targetHouseholdId;
+      document.getElementById("editTargetHouseholdId").value = item.targetHouseholdId || "";
       document.getElementById("editMemberName").textContent = item.memberName;
       document.getElementById("editApprovalStatus").value = item.approvalStatus;
       document.getElementById("editNote").value = item.note || "";
       
       const editRoleSelect = document.getElementById("editRole");
+      
+      // 一時的に動的追加された(変更不可)オプションを削除して初期化
+      Array.from(editRoleSelect.options).forEach(opt => {
+        if (opt.textContent.includes("(変更不可)")) opt.remove();
+      });
+
       const targetRoleOption = Array.from(editRoleSelect.options).find(opt => opt.value === item.role);
       
       if (targetRoleOption && targetRoleOption.disabled) {
