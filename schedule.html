@@ -1,7 +1,7 @@
 <!--
 ==========================================
 スケジュール管理画面 (schedule.html)
-更新日時: 2026/08/12 19:40
+更新日時: 2026/08/13
 ==========================================
 -->
 <!DOCTYPE html>
@@ -19,20 +19,22 @@
   <div class="container my-4">
     <h4>スケジュール管理</h4>
     
+    <div id="app-message-box" class="d-none mb-3 p-3 rounded small"></div>
+
     <div class="card mb-4 shadow-sm">
       <div class="card-body">
         <h6 class="card-title fw-bold mb-3">表示期間の指定</h6>
         <div class="row g-3 align-items-end">
           <div class="col-md-4">
             <label class="form-label small text-muted">開始日</label>
-            <input type="date" id="startDate" class="form-control">
+            <input type="date" id="filterStartDate" class="form-control">
           </div>
           <div class="col-md-4">
             <label class="form-label small text-muted">終了日</label>
-            <input type="date" id="endDate" class="form-control">
+            <input type="date" id="filterEndDate" class="form-control">
           </div>
           <div class="col-md-4">
-            <button class="btn btn-primary w-100 fw-bold" onclick="loadSchedules()">期間を適用して表示</button>
+            <button class="btn btn-primary w-100 fw-bold" onclick="loadEventsWithFilter()">期間を適用して表示</button>
           </div>
         </div>
       </div>
@@ -41,7 +43,7 @@
     <div class="card shadow-sm">
       <div class="card-body">
         <h5 class="card-title fw-bold mb-3">スケジュール一覧</h5>
-        <div id="schedule-list-content">
+        <div id="events-container">
           <p class="text-muted mb-0">指定された期間のスケジュールはありません。</p>
         </div>
       </div>
@@ -52,23 +54,6 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="common.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    let currentUserLineUserId = "";
-
-    document.addEventListener("DOMContentLoaded", initApp);
-
-    async function initApp() {
-      // common.js の共通認証・ヘッダー読み込みを実行
-      currentUserLineUserId = await initCommonApp();
-      if (!currentUserLineUserId) return;
-
-      // 画面固有のデータ読み込み処理を呼び出し
-      loadSchedules();
-    }
-
-    function loadSchedules() {
-      // スケジュール一覧の取得処理をここに実装
-    }
-  </script>
+  <script src="schedule.js"></script>
 </body>
 </html>
