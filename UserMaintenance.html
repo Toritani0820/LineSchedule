@@ -244,41 +244,59 @@
       }
     }
 
-    async function loadPermissionsList() {
+  async function loadPermissionsList() {
+    if (!currentUserLineUserId) {
+      currentUserLineUserId = await initCommonApp();
       if (!currentUserLineUserId) {
-        currentUserLineUserId = await initCommonApp();
-        if (!currentUserLineUserId) {
-          alert("ユーザー認証情報を取得できませんでした。ページを再読み込みしてください。");
-          return;
-        }
-      }
-
-      const tbody = document.getElementById("permissionTableBody");
-      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">読み込み中...</td></tr>`;
-
-      const filters = {
-        role: document.getElementById("filterRole").value.trim(),
-        approvalStatus: document.getElementById("filterApprovalStatus").value.trim(),
-        targetHouseholdId: document.getElementById("filterHouseholdId").value.trim()
-      };
-
-      try {
-        const url = `${CONFIG.GAS_WEB_APP_URL}?action=getPermissionsList&lineUserId=${encodeURIComponent(currentUserLineUserId)}&filterRole=${encodeURIComponent(filters.role)}&filterApprovalStatus=${encodeURIComponent(filters.approvalStatus)}&filterHouseholdId=${encodeURIComponent(filters.targetHouseholdId)}`;
-
-        const response = await fetch(url);
-        const result = await response.json();
-
-        if (result.status === "error") {
-          alert(result.message);
-          return;
-        }
-
-        renderTable(result.data, currentUserLineUserId);
-      } catch (err) {
-        console.error("データ取得エラー:", err);
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">データの取得に失敗しました。</td></tr>`;
+        alert("ユーザー認証情報を取得できませんでした。ページを再読み込みしてください。");
+        return;
       }
     }
+  
+    const tbody = document.getElementById("permissionTableBody");
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">読み込み中...</td></tr>`;
+  
+    // 画面で選択されているフィルタ条件を取得
+    const filters = {
+      role: document.getElementById("filterRole").value.trim(),
+      approvalStatus: document.getElementById("filterApprovalStatus").value.trim(),
+      targetHouseholdId: document.getElementById("filterHouseholdId").value.trim()
+    };
+  
+    try {
+      const url = `${CONFIG.GAS_WEB_APP_URL}?action=getPermissionsList&lineUserId=${encodeURIComponent(currentUserLineUserId)}&filterRole=${encodeURIComponent(filters.role)}&filterApprovalStatus=${encodeURIComponent(filters.approvalStatus)}&filterHouseholdId=${encodeURIComponent(filters.targetHouseholdId)}`;
+  
+      const response = await fetch(url);
+      const result = await response.json();
+  
+      if (result.status === "error") {
+        alert(result.message);
+        return;
+      }
+  
+      // --- フロントエンド側でデータを絞り込む処理を追加 ---
+      let filteredData = result.data || [];
+  
+      // 対象世帯IDで絞り込み（「すべて」でない場合）
+      if (filters.targetHouseholdId) {
+        filteredData = filteredData.filter(item => item.targetHouseholdId === filters.targetHouseholdId);
+      }
+      // アクセス権（ロール）で絞り込み（「すべて」でない場合）
+      if (filters.role) {
+        filteredData = filteredData.filter(item => item.role === filters.role);
+      }
+      // 承認状態で絞り込み（「すべて」でない場合）
+      if (filters.approvalStatus) {
+        filteredData = filteredData.filter(item => item.approvalStatus === filters.approvalStatus);
+      }
+  
+      // 絞り込んだ結果を描画
+      renderTable(filteredData, currentUserLineUserId);
+    } catch (err) {
+      console.error("データ取得エラー:", err);
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">データの取得に失敗しました。</td></tr>`;
+    }
+  }
 
     function renderTable(dataList, currentUserId) {
       const tbody = document.getElementById("permissionTableBody");
