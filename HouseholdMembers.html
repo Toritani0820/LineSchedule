@@ -1,191 +1,127 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <base target="_top">
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>世帯メンバー管理</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
+let currentUserLineUserId = "";
+let currentUserRole = "";
 
-  <div id="navbar-container"></div>
+document.addEventListener("DOMContentLoaded", async () => {
+  currentUserLineUserId = await initCommonApp();
+  if (!currentUserLineUserId) return;
 
-  <div class="container my-4">
-    <h2 class="mb-4">世帯メンバー管理</h2>
+  await initializeHouseholdView();
+});
 
-    <!-- 対象世帯 選択エリア -->
-    <div class="card p-3 mb-4 shadow-sm">
-      <div class="row g-3 align-items-center">
-        <div class="col-md-8">
-          <label class="form-label fw-bold">対象世帯</label>
-          <select id="filterHouseholdId" class="form-select" onchange="loadHouseholdMembers()" disabled>
-            <option value="">読み込み中...</option>
-          </select>
-        </div>
-      </div>
-    </div>
+/**
+ * 初期表示処理：権限に応じた対象世帯一覧を取得してドロップダウンに設定
+ */
+async function initializeHouseholdView() {
+  try {
+    const url = `${CONFIG.GAS_WEB_APP_URL}?action=getValidHouseholds&lineUserId=${encodeURIComponent(currentUserLineUserId)}`;
+    const response = await fetch(url);
+    const result = await response.json();
 
-    <!-- 世帯メンバー一覧 エリア -->
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title fw-bold mb-3">所属メンバー一覧</h5>
-        <div class="table-responsive">
-          <table class="table table-bordered align-middle mb-0">
-            <thead class="table-dark">
-              <tr>
-                <th>氏名</th>
-                <th>よみかた</th>
-                <th>LINE表示名</th>
-                <th>アクセス権</th>
-                <th>承認状態</th>
-              </tr>
-            </thead>
-            <tbody id="memberTableBody">
-              <tr><td colspan="5" class="text-center text-muted">データを読み込み中...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
+    if (result && result.status === "success") {
+      currentUserRole = result.currentRole;
+      populateHouseholdDropdown(result.data, currentUserRole, result.currentHouseholdId);
+      
+      // 世帯一覧の選択に合わせてメンバー一覧を読み込み
+      await loadHouseholdMembers();
+    } else {
+      alert("世帯情報の取得に失敗しました: " + (result ? result.message : ""));
+    }
+  } catch (err) {
+    console.error("初期化エラー詳細:", err);
+    alert("通信エラーが発生しました。 Consoleタブで詳細をご確認ください。");
+  }
+}
 
-  <script src="config.js"></script>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="common.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+/**
+ * 対象世帯ドロップダウンの構築
+ */
+function populateHouseholdDropdown(households, role, currentHouseholdId) {
+  const selectEl = document.getElementById("filterHouseholdId");
+  selectEl.innerHTML = "";
+  const isGlobalAdmin = (role === "システム管理者" || role === "運用管理者");
 
-  <script>
-    let currentUserLineUserId = "";
-    let currentUserRole = "";
+  if (isGlobalAdmin) {
+    const allOption = document.createElement("option");
+    allOption.value = "";
+    allOption.textContent = "すべての世帯";
+    selectEl.appendChild(allOption);
+  }
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      currentUserLineUserId = await initCommonApp();
-      if (!currentUserLineUserId) return;
-
-      await initializeHouseholdView();
+  if (households && households.length > 0) {
+    households.forEach(hh => {
+      const option = document.createElement("option");
+      option.value = hh.householdId;
+      option.textContent = `${hh.householdName}（${hh.householdId}）`;
+      selectEl.appendChild(option);
     });
+  }
 
-    /**
-     * 初期表示処理：権限に応じた対象世帯一覧を取得してドロップダウンに設定
-     */
-    async function initializeHouseholdView() {
-      try {
-        const url = `${CONFIG.GAS_WEB_APP_URL}?action=getValidHouseholds&lineUserId=${encodeURIComponent(currentUserLineUserId)}`;
-        const result = await fetchJsonWithRetry(url);
-
-        if (result && result.status === "success") {
-          currentUserRole = result.currentRole;
-          populateHouseholdDropdown(result.data, currentUserRole, result.currentHouseholdId);
-          
-          // 世帯一覧の選択に合わせてメンバー一覧を読み込み
-          await loadHouseholdMembers();
-        } else {
-          alert("世帯情報の取得に失敗しました: " + (result ? result.message : ""));
-        }
-      } catch (err) {
-        console.error("初期化エラー:", err);
-        alert("通信エラーが発生しました。");
-      }
+  if (!isGlobalAdmin) {
+    if (households && households.length === 1) {
+      selectEl.value = households[0].householdId;
+      selectEl.disabled = true;
+      selectEl.classList.add("bg-light");
+    } else if (households && households.length > 1) {
+      selectEl.value = currentHouseholdId || households[0].householdId;
+      selectEl.disabled = false;
+      selectEl.classList.remove("bg-light");
+    } else {
+      selectEl.disabled = true;
     }
+  } else {
+    selectEl.disabled = false;
+    selectEl.classList.remove("bg-light");
+  }
+}
 
-    /**
-     * 対象世帯ドロップダウンの構築（権限管理と共通の考え方）
-     */
-    function populateHouseholdDropdown(households, role, currentHouseholdId) {
-      const selectEl = document.getElementById("filterHouseholdId");
-      selectEl.innerHTML = "";
-      const isGlobalAdmin = (role === "システム管理者" || role === "運用管理者");
+/**
+ * 選択中の対象世帯に所属するメンバー一覧を取得・表示
+ */
+async function loadHouseholdMembers() {
+  const tbody = document.getElementById("memberTableBody");
+  tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">読み込み中...</td></tr>`;
 
-      if (isGlobalAdmin) {
-        const allOption = document.createElement("option");
-        allOption.value = "";
-        allOption.textContent = "すべての世帯";
-        selectEl.appendChild(allOption);
+  const targetHouseholdId = document.getElementById("filterHouseholdId").value;
+
+  try {
+    const url = `${CONFIG.GAS_WEB_APP_URL}?action=getHouseholdMembers&lineUserId=${encodeURIComponent(currentUserLineUserId)}&targetHouseholdId=${encodeURIComponent(targetHouseholdId)}`;
+    const response = await fetch(url);
+    const result = await response.json();
+
+    if (result.status === "success") {
+      const members = result.members || result.data || [];
+      if (members.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">所属メンバーはいません。</td></tr>`;
+        return;
       }
 
-      if (households && households.length > 0) {
-        households.forEach(hh => {
-          const option = document.createElement("option");
-          option.value = hh.householdId;
-          option.textContent = `${hh.householdName}（${hh.householdId}）`;
-          selectEl.appendChild(option);
-        });
-      }
-
-      if (!isGlobalAdmin) {
-        if (households && households.length === 1) {
-          selectEl.value = households[0].householdId;
-          selectEl.disabled = true;
-          selectEl.classList.add("bg-light");
-        } else if (households && households.length > 1) {
-          selectEl.value = currentHouseholdId || households[0].householdId;
-          selectEl.disabled = false;
-          selectEl.classList.remove("bg-light");
-        } else {
-          selectEl.disabled = true;
-        }
-      } else {
-        selectEl.disabled = false;
-        selectEl.classList.remove("bg-light");
-      }
+      tbody.innerHTML = "";
+      members.forEach(m => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHTML(m.memberName || "未設定")}</td>
+          <td>${escapeHTML(m.memberNameKana || "-")}</td>
+          <td>${escapeHTML(m.lineDisplayName || "-")}</td>
+          <td><span class="badge ${getRoleBadgeClass(m.role)}">${escapeHTML(m.role || "閲覧者")}</span></td>
+          <td><span class="badge ${m.approvalStatus === '承認済' ? 'bg-success' : 'bg-secondary'}">${escapeHTML(m.approvalStatus || "未設定")}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } else {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-info">${escapeHTML(result.message || "データの取得に失敗しました。")}</td></tr>`;
     }
+  } catch (err) {
+    console.error("メンバー取得エラー:", err);
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">通信処理中にエラーが発生しました。</td></tr>`;
+  }
+}
 
-    /**
-     * 選択中の対象世帯に所属するメンバー一覧を取得・表示
-     */
-    async function loadHouseholdMembers() {
-      const tbody = document.getElementById("memberTableBody");
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">読み込み中...</td></tr>`;
-
-      const targetHouseholdId = document.getElementById("filterHouseholdId").value;
-
-      try {
-        const url = `${CONFIG.GAS_WEB_APP_URL}?action=getHouseholdMembers&lineUserId=${encodeURIComponent(currentUserLineUserId)}&targetHouseholdId=${encodeURIComponent(targetHouseholdId)}`;
-        const result = await fetchJsonWithRetry(url);
-
-        if (!result) {
-          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-warning">応答がありませんでした。再読み込みをお試しください。</td></tr>`;
-          return;
-        }
-
-        if (result.status === "success") {
-          const members = result.members || [];
-          if (members.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">所属メンバーはいません。</td></tr>`;
-            return;
-          }
-
-          tbody.innerHTML = "";
-          members.forEach(m => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td>${escapeHTML(m.memberName || "未設定")}</td>
-              <td>${escapeHTML(m.memberNameKana || "-")}</td>
-              <td>${escapeHTML(m.lineDisplayName || "-")}</td>
-              <td><span class="badge ${getRoleBadgeClass(m.role)}">${escapeHTML(m.role || "閲覧者")}</span></td>
-              <td><span class="badge ${m.approvalStatus === '承認済' ? 'bg-success' : 'bg-secondary'}">${escapeHTML(m.approvalStatus || "未設定")}</span></td>
-            `;
-            tbody.appendChild(tr);
-          });
-        } else {
-          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-info">${escapeHTML(result.message || "データの取得に失敗しました。")}</td></tr>`;
-        }
-      } catch (err) {
-        console.error("メンバー取得エラー:", err);
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">通信処理中にエラーが発生しました。</td></tr>`;
-      }
-    }
-
-    function getRoleBadgeClass(role) {
-      switch (role) {
-        case "システム管理者": return "bg-danger";
-        case "運用管理者":     return "bg-warning text-dark";
-        case "世帯管理者":     return "bg-primary";
-        case "予定回答者":     return "bg-success";
-        default:               return "bg-secondary";
-      }
-    }
-  </script>
-</body>
-</html>
+function getRoleBadgeClass(role) {
+  switch (role) {
+    case "システム管理者": return "bg-danger";
+    case "運用管理者":     return "bg-warning text-dark";
+    case "世帯管理者":     return "bg-primary";
+    case "予定回答者":     return "bg-success";
+    default:               return "bg-secondary";
+  }
+}
