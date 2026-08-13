@@ -143,21 +143,10 @@
     const ROLE_HIERARCHY = ["システム管理者", "運用管理者", "世帯管理者", "予定回答者", "閲覧者"];
 
     document.addEventListener("DOMContentLoaded", async () => {
-      // 1. ナビゲーションバーHTMLの読み込み
-      try {
-        const navRes = await fetch("navbar.html");
-        if (navRes.ok) {
-          document.getElementById("navbar-container").innerHTML = await navRes.text();
-        }
-      } catch (e) {
-        console.error("ナビゲーションの読み込みに失敗しました:", e);
-      }
-
-      // 2. アプリの共通初期化
+      // 共通初期化（ここで navbar.html も自動ロードされます）
       currentUserLineUserId = await initCommonApp();
       if (!currentUserLineUserId) return;
       
-      // 3. 画面表示の初期セットアップ
       await initializeMaintenanceView();
     });
 
@@ -170,7 +159,6 @@
         if (result.status === "success") {
           currentUserRole = result.currentRole;
           
-          // ヘッダーUIの表示更新
           if (typeof updateNavigationUI === "function") {
             updateNavigationUI(currentUserRole, window.currentDisplayName || "");
           }
@@ -351,7 +339,6 @@
       
       const editRoleSelect = document.getElementById("editRole");
       
-      // 一時的に動的追加された(変更不可)オプションを削除して初期化
       Array.from(editRoleSelect.options).forEach(opt => {
         if (opt.textContent.includes("(変更不可)")) opt.remove();
       });
