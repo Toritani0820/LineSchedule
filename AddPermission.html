@@ -63,13 +63,11 @@
     let lineDisplayName = "";
 
     document.addEventListener("DOMContentLoaded", async () => {
+      // initCommonApp 内で LIFF 初期化およびユーザー検証が実行されます
       lineUserId = await initCommonApp();
       if (!lineUserId) return;
 
-      if (typeof liff !== "undefined" && liff.isLoggedIn()) {
-        const profile = await liff.getProfile();
-        lineDisplayName = profile.displayName || "";
-      }
+      lineDisplayName = localStorage.getItem("memberName") || "LINEユーザー";
 
       await checkPendingStatus();
     });
