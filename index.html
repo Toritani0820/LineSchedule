@@ -20,46 +20,28 @@
       const loadingText = document.getElementById("loading-text");
       
       try {
-        loadingText.innerText = "LIFFを初期化中...";
-        await liff.init({ liffId: CONFIG.LIFF_ID });
+        loadingText.innerText = "認証・ステータス確認中...";
         
-        if (!liff.isLoggedIn()) {
-          liff.login();
+        // common.js の共通ログイン・ステータス確認を実行
+        const lineUserId = await initCommonApp();
+        
+        if (!lineUserId) {
+          // LIFFログインのリダイレクト中などの場合はそのまま待機
           return;
         }
-  
-        const profile = await liff.getProfile();
-        loadingText.innerText = "ステータスを確認中...";
-  
-        // URL構築
-        const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(profile.userId)}`;
-        
-        // 通信処理
-        const response = await fetch(url);
-        const text = await response.text();
-        
-        let result;
-        try {
-          result = JSON.parse(text);
-        } catch (e) {
-          throw new Error("サーバーから不正なデータが返されました。");
-        }
-  
-        // 結果による遷移
-        if (result.status === "success") {
-          // ここで result.registered が false なら未登録と判断
-          if (result.registered && result.approvalStatus === "承認済") {
-            window.location.replace("schedule.html");
-          } else {
-            window.location.replace("apply.html");
-          }
+
+        const approvalStatus = localStorage.getItem('approvalStatus');
+
+        // 承認済みの場合はスケジュール画面へ、未承認・未登録は申請画面へ遷移
+        if (approvalStatus === "承認済") {
+          window.location.replace("schedule.html");
         } else {
-          throw new Error(result.message || "取得エラー");
+          window.location.replace("apply.html");
         }
-  
+
       } catch (err) {
         console.error(err);
-        loadingText.innerText = "エラー: " + err.message;
+        loadingText.innerText = "エラーが発生しました: " + err.message;
       }
     };
   </script>
