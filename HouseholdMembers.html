@@ -78,13 +78,15 @@
 
           <div class="mb-3">
             <label class="form-label fw-bold">学校名 / 所属</label>
-            <input type="text" id="editSchoolId" class="form-control" placeholder="例: 第一小学校">
+            <input type="text" id="editSchoolName" class="form-control" list="schoolOptions" placeholder="選択または直接入力">
+            <datalist id="schoolOptions"></datalist>
           </div>
 
           <div class="row g-2 mb-3">
             <div class="col-6">
               <label class="form-label fw-bold">学年</label>
-              <input type="text" id="editGradeId" class="form-control" placeholder="例: 3年">
+              <input type="text" id="editGradeName" class="form-control" list="gradeOptions" placeholder="選択または直接入力">
+              <datalist id="gradeOptions"></datalist>
             </div>
             <div class="col-6">
               <label class="form-label fw-bold">組・クラス</label>
@@ -192,6 +194,17 @@
         const result = await response.json();
 
         if (result.status === "success") {
+          // 学校・学年データの自動補完オプション設定
+          const schoolDatalist = document.getElementById("schoolOptions");
+          if (schoolDatalist && result.schools) {
+            schoolDatalist.innerHTML = result.schools.map(s => `<option value="${escapeHTML(s.schoolName)}">`).join("");
+          }
+
+          const gradeDatalist = document.getElementById("gradeOptions");
+          if (gradeDatalist && result.grades) {
+            gradeDatalist.innerHTML = result.grades.map(g => `<option value="${escapeHTML(g.gradeName)}">`).join("");
+          }
+
           const members = result.members || result.data || [];
           if (members.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">所属メンバーはいません。</td></tr>`;
@@ -201,11 +214,11 @@
           tbody.innerHTML = "";
           members.forEach(m => {
             const tr = document.createElement("tr");
-            const classInfo = [m.gradeId, m.schoolYearClass].filter(Boolean).join(" / ") || "-";
+            const classInfo = [m.gradeName || m.gradeId, m.schoolYearClass].filter(Boolean).join(" / ") || "-";
             tr.innerHTML = `
               <td class="fw-bold">${escapeHTML(m.memberName || "未設定")}</td>
               <td>${escapeHTML(m.memberNameKana || "-")}</td>
-              <td>${escapeHTML(m.schoolId || "-")}</td>
+              <td>${escapeHTML(m.schoolName || m.schoolId || "-")}</td>
               <td>${escapeHTML(classInfo)}</td>
               <td>${escapeHTML(m.startDate || "-")}</td>
               <td>${escapeHTML(m.endDate || "無期限")}</td>
@@ -236,8 +249,8 @@
         document.getElementById("editMemberId").value = item.memberId || "";
         document.getElementById("editMemberName").value = item.memberName || "";
         document.getElementById("editMemberNameKana").value = item.memberNameKana || "";
-        document.getElementById("editSchoolId").value = item.schoolId || "";
-        document.getElementById("editGradeId").value = item.gradeId || "";
+        document.getElementById("editSchoolName").value = item.schoolName || item.schoolId || "";
+        document.getElementById("editGradeName").value = item.gradeName || item.gradeId || "";
         document.getElementById("editSchoolYearClass").value = item.schoolYearClass || "";
         document.getElementById("editEndDate").value = item.endDate || "";
       } else {
@@ -245,8 +258,8 @@
         document.getElementById("editMemberId").value = "";
         document.getElementById("editMemberName").value = "";
         document.getElementById("editMemberNameKana").value = "";
-        document.getElementById("editSchoolId").value = "";
-        document.getElementById("editGradeId").value = "";
+        document.getElementById("editSchoolName").value = "";
+        document.getElementById("editGradeName").value = "";
         document.getElementById("editSchoolYearClass").value = "";
         document.getElementById("editEndDate").value = "";
       }
@@ -272,8 +285,8 @@
           memberName: memberName,
           memberNameKana: document.getElementById("editMemberNameKana").value.trim(),
           householdId: targetHouseholdId,
-          schoolId: document.getElementById("editSchoolId").value.trim(),
-          gradeId: document.getElementById("editGradeId").value.trim(),
+          schoolName: document.getElementById("editSchoolName").value.trim(),
+          gradeName: document.getElementById("editGradeName").value.trim(),
           schoolYearClass: document.getElementById("editSchoolYearClass").value.trim(),
           endDate: document.getElementById("editEndDate").value
         }
